@@ -1,0 +1,199 @@
+/* AR Viewer Styles */
+.ar-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #000;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Forced Colors Mode Support */
+@media (forced-colors: active) {
+  .ar-container {
+    forced-color-adjust: none;
+  }
+  
+  .ar-error-fallback {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+  
+  .ar-button {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
+  
+  .ar-button-primary {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  
+  .ar-button-secondary {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+}
+
+/* Interaction Feedback Animation */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+.interaction-feedback {
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Loading Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Error Fallback Styles */
+.ar-error-fallback {
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+}
+
+/* Camera Feed Styles */
+.ar-container video {
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror the camera feed */
+}
+
+/* Canvas Container */
+.ar-container canvas {
+  touch-action: none; /* Prevent default touch actions */
+}
+
+/* Interaction Hint Animation */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+}
+
+/* Error Message Styles */
+.error-message {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+}
+
+/* Button Styles */
+.ar-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+}
+
+.ar-button-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.ar-button-primary:hover {
+  background-color: #2563eb;
+}
+
+.ar-button-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.ar-button-secondary:hover {
+  background-color: #4b5563;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 640px) {
+  .ar-container {
+    height: 100dvh; /* Use dynamic viewport height for mobile */
+  }
+  
+  .ar-error-fallback {
+    padding: 1rem;
+  }
+}
+
+/* High DPI Screen Support */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .ar-container canvas {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .ar-error-fallback {
+    background-color: rgba(0, 0, 0, 0.85);
+  }
+  
+  .ar-button-secondary {
+    background-color: #4b5563;
+  }
+  
+  .ar-button-secondary:hover {
+    background-color: #374151;
+  }
+} 
