@@ -1,0 +1,432 @@
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
+import { setCourse } from '@/redux/courseSlice'
+import { setLectures } from '@/redux/lectureSlice'
+import { 
+  Clock, 
+  Globe, 
+  Loader2, 
+  PlayCircle, 
+  CheckCircle, 
+  Lock, 
+  BookOpen, 
+  Users, 
+  Calendar
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from 'sonner'
+import api from '@/lib/axiosConfig'
+
+const CourseDetails = () => {
+  const { courseId } = useParams()
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
+
+  const { user } = useSelector(store => store.auth)
+  const { lectures } = useSelector(store => store.lecture)
+  
+  const [course, setCourseData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [enrollLoading, setEnrollLoading] = useState(false)
+  const [isEnrolled, setIsEnrolled] = useState(false)
+  const [error, setError] = useState(null)
+  const [debugInfo, setDebugInfo] = useState(null)
+
+  // Helper function to check if user is enrolled
+  const checkIfUserIsEnrolled = (courseData, userId) => {
+    if (!courseData || !courseData.enrolledStudents || !userId) {
+      return false;
+    }
+    
+    return courseData.enrolledStudents.some(studentId => {
+      // Convert both to strings for proper comparison
+      const studentIdStr = typeof studentId === 'object' ? studentId._id.toString() : studentId.toString();
+      const userIdStr = userId.toString();
+      return studentIdStr === userIdStr;
+    });
+  };
+
+  useEffect(() => {
+    const fetchCourseDetails = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        setDebugInfo(null)
+        
+        if (!courseId || courseId === 'undefined') {
+          setError('Invalid course ID');
+          setDebugInfo(`CourseId: ${courseId}`);
+          return;
+        }
+
+        if (!user || !user._id) {
+          setError('Please log in to view course details');
+          setDebugInfo('No user data found');
+          navigate('/login');
+          return;
+        }
+        
+        console.log('Fetching course details for ID:', courseId);
+        
+        // Fetch course details
+        const courseResponse = await api.get(`/course/${courseId}`);
+        console.log('Course API response:', courseResponse.data);
+        
+        if (courseResponse.data.success) {
+          const courseData = courseResponse.data.course;
+          console.log('Course data:', courseData);
+          setCourseData(courseData);
+          
+          // Check if user is enrolled
+          const enrolled = checkIfUserIsEnrolled(courseData, user._id);
+          console.log('User enrolled status:', enrolled);
+          setIsEnrolled(enrolled);
+        } else {
+          setError(courseResponse.data.message || 'Failed to fetch course details');
+          setDebugInfo(`API returned success: false: ${courseResponse.data.message}`);
+          return;
+        }
+        
+        // Fetch lectures for this course
+        const lecturesResponse = await api.get(`/course/${courseId}/lecture`);
+        console.log('Lectures API response:', lecturesResponse.data);
+        
+        if (lecturesResponse.data.success) {
+          dispatch(setLectures(lecturesResponse.data.lectures));
+        }
+      } catch (error) {
+        console.error('Error fetching course details:', error);
+        
+        // Create detailed debug info
+        let debugData = {
+          message: error.message,
+          stack: error.stack,
+          request: error.config ? {
+            url: error.config.url,
+            method: error.config.method,
+            headers: error.config.headers,
+          } : 'No request config'
+        };
+        
+        if (error.response) {
+          debugData.response = {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          };
+          setError(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to fetch course details'}`);
+        } else if (error.request) {
+          debugData.request = 'Request was made but no response received';
+          setError('No response from server. Please check if the server is running.');
+        } else {
+          setError('An unexpected error occurred. Please try again later.');
+        }
+        
+        setDebugInfo(JSON.stringify(debugData, null, 2));
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (courseId) {
+      fetchCourseDetails()
+    } else {
+      setError('Missing course ID');
+      setDebugInfo('courseId parameter is missing from URL');
+    }
+  }, [courseId, dispatch, navigate, user])
+
+  const handleEnrollCourse = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    try {
+      setEnrollLoading(true)
+      
+      // Call the enrollment API endpoint
+      const response = await api.post(`/course/${courseId}/enroll`);
+      console.log('Enrollment response:', response.data);
+      
+      if (response.data.success) {
+        setIsEnrolled(true)
+        
+        // Update the course data with the new enrollment
+        const updatedCourse = response.data.course;
+        
+        // Make sure we're updating the state correctly
+        setCourseData(updatedCourse);
+        
+        toast.success(response.data.message || 'Successfully enrolled in the course')
+      } else {
+        toast.error(response.data.message || 'Failed to enroll in the course')
+      }
+    } catch (error) {
+      console.error('Error enrolling in course:', error)
+      
+      // Create detailed error info for debugging
+      let errorDetails = {
+        message: error.message,
+        code: error.code
+      };
+      
+      // Provide more specific error messages based on the error
+      if (error.response) {
+        errorDetails.status = error.response.status;
+        errorDetails.data = error.response.data;
+        toast.error(error.response.data?.message || `Error (${error.response.status}): Failed to enroll in course`)
+      } else if (error.request) {
+        errorDetails.request = 'No response received';
+        toast.error('No response from server. Please check your connection and try again.')
+      } else {
+        toast.error('Error preparing enrollment request. Please try again later.')
+      }
+      
+      console.log('Enrollment error details:', errorDetails);
+    } finally {
+      setEnrollLoading(false)
+    }
+  }
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-10 w-10 animate-spin text-violet-500" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen">
+        <p className="text-red-500 text-xl mb-4">{error}</p>
+        {debugInfo && (
+          <div className="mb-4 max-w-2xl">
+            <details>
+              <summary className="text-sm text-gray-500 cursor-pointer">Debug Information</summary>
+              <pre className="text-xs bg-gray-100 p-4 rounded mt-2 overflow-auto max-h-96">{debugInfo}</pre>
+            </details>
+          </div>
+        )}
+        <Button onClick={() => navigate('/courses')}>
+          Back to Courses
+        </Button>
+      </div>
+    )
+  }
+
+  if (!course) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen">
+        <p className="text-gray-500 text-xl mb-4">Course not found</p>
+        <Button onClick={() => navigate('/courses')}>
+          Back to Courses
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pt-16">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+       <div className="mb-6">
+          <Button 
+            variant="ghost" 
+            className="flex items-center text-gray-600 hover:text-gray-900"
+            onClick={() => navigate('/courses')}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Courses
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Course Details - Left Section */}
+          <div className="lg:col-span-2">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {course.courseTitle}
+            </h1>
+            <p className="text-xl text-gray-600 mb-6">
+              {course.subTitle}
+            </p>
+            
+            <div className="flex flex-wrap gap-4 mb-6">
+              <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-200">
+                {course.category}
+              </Badge>
+              <div className="flex items-center text-gray-600">
+                <Clock size={16} className="mr-1" />
+                <span>{course.duration || 0} hours</span>
+              </div>
+              <div className="flex items-center text-gray-600">
+                <Globe size={16} className="mr-1" />
+                <span>{course.language || "English"}</span>
+              </div>
+              <div className="flex items-center text-gray-600">
+                <Users size={16} className="mr-1" />
+                <span>{course.enrolledStudents?.length || 0} students</span>
+              </div>
+              <div className="flex items-center text-gray-600">
+                <Calendar size={16} className="mr-1" />
+                <span>Created {formatDate(course.createdAt)}</span>
+              </div>
+            </div>
+            
+            {course.courseThumbnail && (
+              <div className="mb-8">
+                <img 
+                  src={course.courseThumbnail} 
+                  alt={course.courseTitle} 
+                  className="w-full h-auto rounded-lg shadow-md"
+                />
+              </div>
+            )}
+            
+            <Tabs defaultValue="about" className="mb-8">
+              <TabsList className="mb-4">
+                <TabsTrigger value="about">About</TabsTrigger>
+                <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="about" className="p-4 bg-white rounded-lg shadow">
+                <h2 className="text-2xl font-semibold mb-4">About This Course</h2>
+                <div className="prose max-w-none">
+                  {course.description ? (
+                    <div dangerouslySetInnerHTML={{ __html: course.description }} />
+                  ) : (
+                    <p className="text-gray-500">No description available for this course.</p>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="curriculum" className="p-4 bg-white rounded-lg shadow">
+                <h2 className="text-2xl font-semibold mb-4">Course Curriculum</h2>
+                {lectures && lectures.length > 0 ? (
+                  <div className="space-y-3">
+                    {lectures.map((lecture, index) => (
+                      <Card key={lecture._id} className="hover:bg-gray-50 transition">
+                        <CardContent className="p-4 flex justify-between items-center">
+                          <div className="flex items-center">
+                            <div className="mr-3 flex-shrink-0">
+                              {index + 1}.
+                            </div>
+                            <div>
+                              <h3 className="font-medium">{lecture.lectureTitle}</h3>
+                              {lecture.description && (
+                                <p className="text-sm text-gray-500">{lecture.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            {lecture.isPreview || isEnrolled ? (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                className="flex items-center"
+                                onClick={() => navigate(`/courses/${courseId}/lecture/${lecture._id}`)}
+                              >
+                                <PlayCircle className="mr-1 h-4 w-4" />
+                                {lecture.isPreview ? 'Preview' : 'Watch'}
+                              </Button>
+                            ) : (
+                              <Lock className="h-4 w-4 text-gray-400" />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No lectures available for this course.</p>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          {/* Enrollment Card - Right Section */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-20">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-center">
+                  <BookOpen className="h-12 w-12 text-violet-500" />
+                </div>
+                
+                <h3 className="text-2xl font-bold text-center mb-6">
+                  Course Information
+                </h3>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Level:</span>
+                    <span className="font-medium">{course.courseLevel || 'All Levels'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Duration:</span>
+                    <span className="font-medium">{course.duration || 0} hours</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Lectures:</span>
+                    <span className="font-medium">{lectures?.length || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Language:</span>
+                    <span className="font-medium">{course.language || 'English'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Students:</span>
+                    <span className="font-medium">{course.enrolledStudents?.length || 0}</span>
+                  </div>
+                </div>
+                
+                {isEnrolled ? (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center text-green-600 mb-2">
+                      <CheckCircle className="h-6 w-6 mr-2" />
+                      <span className="font-medium">Enrolled</span>
+                    </div>
+                    <Button 
+                      className="w-full mt-4"
+                      onClick={() => navigate(`/courses/${courseId}/lecture/${lectures[0]?._id}`)}
+                      disabled={!lectures || lectures.length === 0}
+                    >
+                      {lectures && lectures.length > 0 ? 'Start Learning' : 'No Content Yet'}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    className="w-full" 
+                    onClick={handleEnrollCourse}
+                    disabled={enrollLoading}
+                  >
+                    {enrollLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enrolling...
+                      </>
+                    ) : (
+                      'Enroll Now'
+                    )}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default CourseDetails 

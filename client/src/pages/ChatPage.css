@@ -1,0 +1,13 @@
+.chat-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  padding: 20px;
+  padding-top: 90px;
+}
+
+.chat-page h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2rem;
+} 
